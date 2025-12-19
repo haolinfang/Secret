@@ -300,7 +300,7 @@ public class WebBSVersionHelper {
    */
   private void downloadHashFileFromServer(String resourcePath, File targetFile) throws VersionError {
     try {
-      String url = String.format("%s/resources/%s/resource_hashes", String.format("%s/NCB/", Constants.getEnv().getIp()), resourcePath);
+      String url = String.format("%s/resources/%s/resource_hashes", Constants.getEnv().getIp(), resourcePath);
       Log.d(TAG, "下载哈希文件: " + url);
 
       Request request = new Request.Builder().url(url).get().build();
