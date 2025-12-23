@@ -27,25 +27,13 @@ public class EncryptUtils {
   // RSA 2048位公钥（与前端保持一致）
   public static final String PUBLIC_2048_KEY =
     "-----BEGIN PUBLIC KEY-----\n" +
-      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlHq1N4eUeGJ/IgKwLFVe\n" +
-      "tXExWEhNKS1zWgpuDbazDC14O8krTPOnKpNmATu4ESBPp0+QYJVP8KWuH1zTX7Nb\n" +
-      "HIHf4sJG9q4jA7rahkGsLEgtshuVV6KQOyhCuSq1g4zdv0AquJVrTtRXgUCuGEm5\n" +
-      "6UjPMVkWiuVlSs1KdHuAJqm5f36GDNewYZ3Q477vt8JEGq1P2TPmDkBiDi//rtlz\n" +
-      "dHqDuG45gRKJA9NXQvx0bIQAB+3kshuaibmwq7CHep5T5+Rsas4zl7isdTdgs5rx\n" +
-      "qa6SiWQ0nUU69SWf9aau0qfkA+O4e+wUDYUS070TqPM0GqfSB78Bmji/qMurrsiS\n" +
-      "LQIDAQAB\n" +
+      "\n" +
       "-----END PUBLIC KEY-----";
 
   // AES加密用的RSA公钥
   public static final String PUBLIC_AES_KEY =
     "-----BEGIN PUBLIC KEY-----\n" +
-      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiYqGA2I2k2P9S3zMZNGK\n" +
-      "77kB50P2x8vveml1HRHin684b9rTqYVFy+p7xepK4Ga1t0fICyXI6qhGWREsErQS\n" +
-      "sxZ0+TpNM53luczM8BrgnCjJmQ7mP594fLyEMOD7MWROXyyYlU1wVD5cwyGQO+BH\n" +
-      "6T82SPOCa3LUCpKvMvtnIEUFg1OM/5JRZccNTewOdw3QGqxkBACVxnCo1AeEAoA+\n" +
-      "LvkfMRx9k5X/QdsgFElH2oaZtu87nI7E1rg8/HXOC/YNeENeF5LDKV5HTDm0IUQz\n" +
-      "3Fj6+nYLogswmfjIE1DtaNqn6OBxnzVb4YYtZCyr7LDj8rgifXxiLAm0+nLQfXjG\n" +
-      "cQIDAQAB\n" +
+      "\n" +
       "-----END PUBLIC KEY-----";
 
   /**

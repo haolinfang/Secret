@@ -36,7 +36,7 @@ public class VersionInfoFetcher {
       Map<String, Object> params = new HashMap<>();
       params.put("channelNo", "mb");
       params.put("bussType", 0);
-      params.put("appType", 0);
+      params.put("appType", 1);
       params.put("bankAppVersion", InfoUtils.getAppVersionName(context));
       params.put("deviceCode", InfoUtils.getDeviceId());
       params.put("termIP", InfoUtils.getIpAddress());
