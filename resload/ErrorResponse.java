@@ -1,4 +1,4 @@
-package com.ionicframework.cordova.webview.online;
+package com.ionicframework.online.resload;
 
 import android.os.Build;
 import android.util.Log;

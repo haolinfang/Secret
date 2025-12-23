@@ -1,6 +1,6 @@
-package com.ionicframework.cordova.webview.online;
+package com.ionicframework.online.utils;
 
-public class MimeTypeUtil {
+public class MimeTypeUtils {
   public static String guessMimeTypeFromUrl(String path) {
     if (path == null) {
       return "application/octet-stream";

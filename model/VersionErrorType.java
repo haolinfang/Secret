@@ -1,4 +1,4 @@
-package com.ionicframework.cordova.webview.bs;
+package com.ionicframework.online.model;
 
 /**
  * 版本信息错误类型枚举

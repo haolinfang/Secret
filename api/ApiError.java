@@ -1,17 +1,13 @@
-package com.ionicframework.cordova.webview.secret;
+package com.ionicframework.online.api;
 
 /**
  * RCP请求错误
  */
-public class XcRcpError extends Exception {
+public class ApiError extends Exception {
   private int code;
   private String message;
 
-  public XcRcpError(int code) {
-    this(code, "RCP请求错误: " + code);
-  }
-
-  public XcRcpError(int code, String message) {
+  public ApiError(int code, String message) {
     super(message);
     this.code = code;
     this.message = message;

@@ -1,4 +1,4 @@
-package com.ionicframework.cordova.webview.secret;
+package com.ionicframework.online.utils;
 
 import android.util.Base64;
 import android.util.Log;
@@ -27,13 +27,25 @@ public class EncryptUtils {
   // RSA 2048位公钥（与前端保持一致）
   public static final String PUBLIC_2048_KEY =
     "-----BEGIN PUBLIC KEY-----\n" +
-      "\n" +
+      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlHq1N4eUeGJ/IgKwLFVe\n" +
+      "tXExWEhNKS1zWgpuDbazDC14O8krTPOnKpNmATu4ESBPp0+QYJVP8KWuH1zTX7Nb\n" +
+      "HIHf4sJG9q4jA7rahkGsLEgtshuVV6KQOyhCuSq1g4zdv0AquJVrTtRXgUCuGEm5\n" +
+      "6UjPMVkWiuVlSs1KdHuAJqm5f36GDNewYZ3Q477vt8JEGq1P2TPmDkBiDi//rtlz\n" +
+      "dHqDuG45gRKJA9NXQvx0bIQAB+3kshuaibmwq7CHep5T5+Rsas4zl7isdTdgs5rx\n" +
+      "qa6SiWQ0nUU69SWf9aau0qfkA+O4e+wUDYUS070TqPM0GqfSB78Bmji/qMurrsiS\n" +
+      "LQIDAQAB\n" +
       "-----END PUBLIC KEY-----";
 
   // AES加密用的RSA公钥
   public static final String PUBLIC_AES_KEY =
     "-----BEGIN PUBLIC KEY-----\n" +
-      "\n" +
+      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiYqGA2I2k2P9S3zMZNGK\n" +
+      "77kB50P2x8vveml1HRHin684b9rTqYVFy+p7xepK4Ga1t0fICyXI6qhGWREsErQS\n" +
+      "sxZ0+TpNM53luczM8BrgnCjJmQ7mP594fLyEMOD7MWROXyyYlU1wVD5cwyGQO+BH\n" +
+      "6T82SPOCa3LUCpKvMvtnIEUFg1OM/5JRZccNTewOdw3QGqxkBACVxnCo1AeEAoA+\n" +
+      "LvkfMRx9k5X/QdsgFElH2oaZtu87nI7E1rg8/HXOC/YNeENeF5LDKV5HTDm0IUQz\n" +
+      "3Fj6+nYLogswmfjIE1DtaNqn6OBxnzVb4YYtZCyr7LDj8rgifXxiLAm0+nLQfXjG\n" +
+      "cQIDAQAB\n" +
       "-----END PUBLIC KEY-----";
 
   /**
@@ -194,6 +206,20 @@ public class EncryptUtils {
   }
 
   /**
+   * MD5加密
+   */
+  public static String md5Bytes(byte[] input) {
+    try {
+      MessageDigest md = MessageDigest.getInstance("MD5");
+      byte[] digest = md.digest(input);
+      return bytesToHex(digest);
+    } catch (NoSuchAlgorithmException e) {
+      Log.e(TAG, "MD5计算失败", e);
+      return "";
+    }
+  }
+
+  /**
    * SHA256加密
    */
   public static String sha256(String input) {
@@ -220,43 +246,5 @@ public class EncryptUtils {
       hexString.append(hex);
     }
     return hexString.toString();
-  }
-
-  /**
-   * 十六进制字符串转字节数组
-   */
-  private static byte[] hexToBytes(String hexString) {
-    int len = hexString.length();
-    byte[] data = new byte[len / 2];
-    for (int i = 0; i < len; i += 2) {
-      data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
-        + Character.digit(hexString.charAt(i + 1), 16));
-    }
-    return data;
-  }
-
-  /**
-   * 生成安全的随机字节数组
-   */
-  public static byte[] generateRandomBytes(int length) {
-    byte[] bytes = new byte[length];
-    new SecureRandom().nextBytes(bytes);
-    return bytes;
-  }
-
-  /**
-   * 生成安全的随机字符串
-   */
-  public static String generateRandomString(int length) {
-    String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    StringBuilder result = new StringBuilder(length);
-    SecureRandom random = new SecureRandom();
-
-    for (int i = 0; i < length; i++) {
-      int index = random.nextInt(characters.length());
-      result.append(characters.charAt(index));
-    }
-
-    return result.toString();
   }
 }

@@ -1,4 +1,4 @@
-package com.ionicframework.cordova.webview.online;
+package com.ionicframework.online.core;
 
 import android.content.Context;
 import android.net.Uri;
@@ -7,8 +7,11 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.webkit.WebResourceResponse;
 
-import com.ionicframework.cordova.webview.WebViewLocalServer;
-import com.ionicframework.cordova.webview.bs.WebViewSharedState;
+import com.china.ncbcmbs.Constants;
+import com.ionicframework.online.interceptor.LoggingInterceptor;
+import com.ionicframework.online.resload.ErrorReason;
+import com.ionicframework.online.resload.ErrorResponse;
+import com.ionicframework.online.utils.MimeTypeUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -18,13 +21,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 /**
- * WebView在线资源服务器 - 负责拦截WebView请求并处理缓存
+ * WebView在线资源服务器 - 负责拦截WebView请求并处理缓存，支持文件完整性校验
  */
 public class WebViewOnLineServer {
 
@@ -34,119 +38,108 @@ public class WebViewOnLineServer {
   }
 
   private static final String TAG = "WebViewOnLineServer";
-  private Context mContext;
+
   private OkHttpClient okHttpClient;
   private String onlineBaseUrl;
   private RedirectFilter redirectFilter;
   private Map<String, String> onlineRequestHeaders;
   private OnLineCacheManager cacheManager;
-  private String currentVersion;
+  private String currentResourcePath;
+  private HashFileDownloader hashFileDownloader;
+  private PreferenceHelper sharedState;
 
   public WebViewOnLineServer(Context context) {
-    this.mContext = context;
     this.cacheManager = OnLineCacheManager.getInstance(context);
-
-    initOkHttpClient();
+    this.sharedState = PreferenceHelper.getInstance(context);
+    this.hashFileDownloader = new HashFileDownloader(context);
 
     // 初始化请求头
     onlineRequestHeaders = new HashMap<>();
     onlineRequestHeaders.put("User-Agent", "Mozilla/5.0 (Android; WebView)");
     onlineRequestHeaders.put("X-Custom-Header", "CustomValue");
-    onlineRequestHeaders.put("Authorization", "token");
 
-    setRedirectFilter(new RedirectFilter() {
-      @Override
-      public boolean shouldRedirect(Uri uri) {
-        String path = uri.getPath();
-        return path != null && (path.startsWith("/build/") || path.startsWith("/assets/"));
-      }
-    });
-  }
-
-  /**
-   * 设置当前资源版本
-   * @param version 版本号，如 "2025121800"
-   */
-  public void setVersion(String version) {
-    this.currentVersion = version;
-    Log.i(TAG, "WebViewOnLineServer版本设置为: " + version);
-  }
-
-  /**
-   * 获取当前版本
-   */
-  public String getCurrentVersion() {
-    return currentVersion;
-  }
-
-  private void initOkHttpClient() {
     okHttpClient = new OkHttpClient.Builder()
       .connectTimeout(30, TimeUnit.SECONDS)
       .readTimeout(30, TimeUnit.SECONDS)
       .writeTimeout(30, TimeUnit.SECONDS)
+      .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES))
+      .addInterceptor(new LoggingInterceptor())
       .build();
+
+    setRedirectFilter(uri -> {
+      String path = uri.getPath();
+      return path != null && (path.startsWith("/build/") || path.startsWith("/assets/"));
+    });
   }
 
   // 设置重定向过滤器
-  public void setRedirectFilter(RedirectFilter filter) {
+  private void setRedirectFilter(RedirectFilter filter) {
     this.redirectFilter = filter;
   }
 
-  /**
-   * 设置在线基础URL
-   */
-  public void setOnlineBaseUrl(String baseUrl) {
-    this.onlineBaseUrl = baseUrl;
+  public boolean shouldRedirectToOnline(Uri uri) {
+    // 如果设置了过滤器，使用过滤器
+    if (redirectFilter != null) {
+      return redirectFilter.shouldRedirect(uri);
+    }
+
+    // 否则使用默认逻辑
+    return false;
   }
 
-  /**
-   * 添加自定义请求头
-   */
-  public void addRequestHeader(String key, String value) {
-    onlineRequestHeaders.put(key, value);
-  }
-
-  public WebResourceResponse redirectToOnline(Uri uri, WebViewLocalServer.PathHandler handler) {
+  public WebResourceResponse redirectToOnline(Uri uri) {
     String relativePath = uri.getPath();
     if (TextUtils.isEmpty(relativePath)) {
       return createErrorResponse("无效的路径", 400, uri.getPath());
     }
 
-    if (TextUtils.isEmpty(this.onlineBaseUrl)) {
-      this.onlineBaseUrl = "https://xxx.yyy.zzz/android/www/";
-    }
-
-    // 检查当前版本是否已设置
-    if (TextUtils.isEmpty(currentVersion)) {
-      // 尝试从缓存管理器获取当前版本
-
-      String cachedVersion = cacheManager.getCurrentVersion();
-      if (cachedVersion != null) {
-        this.currentVersion = cachedVersion;
-        Log.i(TAG, "从缓存管理器获取版本: " + cachedVersion);
+    // 检查当前资源路径是否已设置
+    if (TextUtils.isEmpty(currentResourcePath)) {
+      // 尝试从SharedPreferences获取资源路径
+      String cachedResourcePath = sharedState.getResourcePath();
+      if (cachedResourcePath != null) {
+        this.currentResourcePath = cachedResourcePath;
+        Log.i(TAG, "从SharedPreferences获取资源路径: " + cachedResourcePath);
       } else {
-        Log.w(TAG, "版本未设置，无法处理请求: " + relativePath);
-        return createErrorResponse("版本未初始化", 503, relativePath);
+        Log.w(TAG, "资源路径未设置，无法处理请求: " + relativePath);
+        return createErrorResponse("资源路径未初始化", 503, relativePath);
       }
     }
 
+    if (TextUtils.isEmpty(this.onlineBaseUrl)) {
+      this.onlineBaseUrl = String.format("%s/resources/%s/www", Constants.getEnv().getIp(), currentResourcePath);
+    }
+
     // 1. 首先检查本地缓存
-    if (cacheManager != null && cacheManager.isVersionSet()) {
+    if (cacheManager != null && cacheManager.isResourcePathSet()) {
       if (cacheManager.isResourceCached(relativePath)) {
         Log.d(TAG, "缓存命中: " + relativePath);
         try {
           InputStream cachedStream = cacheManager.getCachedResourceAsStream(relativePath);
           if (cachedStream != null) {
-            String mimeType = MimeTypeUtil.guessMimeTypeFromUrl(relativePath);
+            // 读取缓存文件进行完整性校验
+            byte[] cachedData = readInputStreamToBytes(cachedStream);
 
-            Map<String, String> responseHeaders = new HashMap<>();
-            responseHeaders.put("X-Cache", "HIT");
-            responseHeaders.put("X-Version", currentVersion);
-            responseHeaders.put("Content-Type", mimeType + "; charset=UTF-8");
-            responseHeaders.put("Cache-Control", "public, max-age=31536000");
+            // 校验文件完整性
+            boolean isValid = hashFileDownloader.verifyFileIntegrity(relativePath, cachedData);
 
-            return createWebResourceResponse(mimeType, "UTF-8", 200,
-              "OK", responseHeaders, cachedStream);
+            if (isValid) {
+              String mimeType = MimeTypeUtils.guessMimeTypeFromUrl(relativePath);
+
+              Map<String, String> responseHeaders = new HashMap<>();
+              responseHeaders.put("X-Cache", "HIT");
+              responseHeaders.put("X-Integrity", "VALID");
+              responseHeaders.put("X-Resource-Path", currentResourcePath);
+              responseHeaders.put("Content-Type", mimeType + "; charset=UTF-8");
+              responseHeaders.put("Cache-Control", "public, max-age=31536000");
+
+              return createWebResourceResponse(mimeType, "UTF-8", 200,
+                "OK", responseHeaders, new ByteArrayInputStream(cachedData));
+            } else {
+              Log.w(TAG, "缓存文件完整性校验失败，将重新下载: " + relativePath);
+              // 只删除损坏的单个文件，而不是整个版本目录
+              cacheManager.deleteCachedFile(relativePath);
+            }
           }
         } catch (Exception e) {
           Log.e(TAG, "读取缓存失败: " + relativePath, e);
@@ -156,7 +149,7 @@ public class WebViewOnLineServer {
     }
 
     try {
-      // 2. 缓存未命中，从网络获取
+      // 2. 缓存未命中或校验失败，从网络获取
       // 构建完整的在线URL
       if (TextUtils.isEmpty(relativePath) || relativePath.equals("/")) {
         relativePath = "";
@@ -164,10 +157,10 @@ public class WebViewOnLineServer {
         relativePath = relativePath.substring(1);
       }
 
-      // 构建最终的URL
+      // 构建最终的URL - 使用resourcePath
       String onlineUrl;
       if (onlineBaseUrl.endsWith("/")) {
-        onlineUrl = onlineBaseUrl + relativePath;
+        onlineUrl = onlineBaseUrl + "/" + relativePath;
       } else {
         onlineUrl = onlineBaseUrl + "/" + relativePath;
       }
@@ -223,13 +216,23 @@ public class WebViewOnLineServer {
 
         // 如果无法从响应头获取mimeType，尝试从URL推断
         if (TextUtils.isEmpty(mimeType)) {
-          mimeType = MimeTypeUtil.guessMimeTypeFromUrl(uri.getPath());
+          mimeType = MimeTypeUtils.guessMimeTypeFromUrl(uri.getPath());
         }
 
         ResponseBody responseBody = response.body();
         if (responseBody != null) {
           // 关键修改：读取响应体到字节数组（用于缓存）
           byte[] responseData = responseBody.bytes();
+
+          // 校验文件完整性
+          boolean isValid = hashFileDownloader.verifyFileIntegrity(relativePath, responseData);
+
+          if (!isValid) {
+            Log.e(TAG, "文件完整性校验失败: " + relativePath);
+            return createErrorResponse("文件完整性校验失败", 500, relativePath);
+          }
+
+          Log.d(TAG, "文件完整性校验通过: " + relativePath);
 
           // 关键修改：缓存到本地
           if (cacheManager != null) {
@@ -246,7 +249,8 @@ public class WebViewOnLineServer {
 
           // 添加缓存相关的响应头
           responseHeaders.put("X-Cache", "MISS");
-          responseHeaders.put("X-Version", currentVersion);
+          responseHeaders.put("X-Integrity", "VALID");
+          responseHeaders.put("X-Resource-Path", currentResourcePath);
 
           return createWebResourceResponse(mimeType, charset, statusCode,
             ErrorReason.getReasonPhrase(statusCode), responseHeaders, inputStream);
@@ -268,6 +272,27 @@ public class WebViewOnLineServer {
     }
   }
 
+  /**
+   * 将InputStream读取为字节数组
+   */
+  private byte[] readInputStreamToBytes(InputStream inputStream) throws IOException {
+    try {
+      java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+      byte[] data = new byte[8192];
+      int bytesRead;
+      while ((bytesRead = inputStream.read(data, 0, data.length)) != -1) {
+        buffer.write(data, 0, bytesRead);
+      }
+      return buffer.toByteArray();
+    } finally {
+      try {
+        inputStream.close();
+      } catch (IOException e) {
+        Log.e(TAG, "关闭输入流出错", e);
+      }
+    }
+  }
+
   private WebResourceResponse createErrorResponse(String message, int statusCode, String relativePath) {
     return ErrorResponse.createErrorResponse(message, statusCode, null, relativePath);
   }
@@ -278,19 +303,5 @@ public class WebViewOnLineServer {
     } else {
       return new WebResourceResponse(mimeType, encoding, data);
     }
-  }
-
-  public boolean shouldRedirectToOnline(Uri uri) {
-    if (onlineBaseUrl == null || onlineBaseUrl.isEmpty()) {
-      return false;
-    }
-
-    // 如果设置了过滤器，使用过滤器
-    if (redirectFilter != null) {
-      return redirectFilter.shouldRedirect(uri);
-    }
-
-    // 否则使用默认逻辑
-    return true;
   }
 }

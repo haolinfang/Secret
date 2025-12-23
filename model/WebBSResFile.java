@@ -1,4 +1,4 @@
-package com.ionicframework.cordova.webview.bs;
+package com.ionicframework.online.model;
 
 import java.util.Map;
 
